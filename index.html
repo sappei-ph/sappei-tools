@@ -4,16 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>さっぺい臨床ツール</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts (Noto Sans JP) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <style>
@@ -329,16 +325,15 @@
         // --- メインアプリコンポーネント ---
         function App() {
             const handleNavigate = (screen) => {
+                // 修正ポイント: 外部URLではなく、フォルダ名（内部リンク）に変更しました
                 const urls = {
-                    'opioid': 'https://sappei-ph.github.io/opioid-tool/',
-                    'antibiotic': 'https://sappei-ph.github.io/antibiotic-tool/',
-                    'pain': 'https://sappei-ph.github.io/pain-scale/',
-                    'bristol': 'https://sappei-ph.github.io/bristol-scale/'
+                    'opioid': './opioid-tool/',
+                    'antibiotic': './antibiotic-tool/',
+                    'pain': './pain-scale/',
+                    'bristol': './bristol-scale/'
                 };
 
                 if (urls[screen]) {
-                    // プレビュー環境では新しいタブで開くことを推奨しますが、
-                    // 元のコードの挙動を再現しています。
                     window.location.href = urls[screen];
                 }
             };
