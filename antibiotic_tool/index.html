@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抗菌薬投与法ツール</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 必要なアイコンのみ抽出 ---
+        const ChevronLeft = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6"/></svg>
+        );
+        const ArrowRight = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        );
+        const TableIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+        );
+        const Search = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        );
+        const Pill = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="10" x="3" y="7" rx="5" /><line x1="12" x2="12" y1="7" y2="17" /></svg>
+        );
+        const Syringe = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg>
+        );
+
+        // --- 抗菌薬データ (腎機能障害時を含む) ---
+        const ANTIBIOTICS_IV = [
+            { name: 'ペニシリンG', product: 'ペニシリンG', dose1: '200〜500万単位\n(4時間毎)', dose2: '100〜500万単位\n(6時間毎)', dose3: '100〜500万単位\n(8時間毎)', dose4: '100〜500万単位\n(12時間毎)' },
+            { name: 'アンピシリン', product: 'ビクシリン', dose1: '2g(6時間毎)\n(髄膜炎:2g[4時間毎])', dose2: '2g(8時間毎)\n(髄膜炎:2g[6時間毎])', dose3: '2g(12時間毎)\n(髄膜炎:2g[8時間毎])', dose4: '2g(12時間毎)\n(髄膜炎:2g[8時間毎])' },
+            { name: 'ピペラシリン', product: 'ペントシリン', dose1: '4g(6時間毎)', dose2: '4g(6〜8時間毎)', dose3: '4g(8時間毎)', dose4: '4g(12時間毎)' },
+            { name: 'アンピシリン/スルバクタム', product: 'ユナシンS', dose1: '1.5〜3g(6時間毎)', dose2: '1.5〜3g(8〜12時間毎)', dose3: '1.5〜3g(12時間毎)', dose4: '1.5〜3g(24時間毎)' },
+            { name: 'ピペラシリン/タゾバクタム', product: 'ゾシン', dose1: '4.5g(6時間毎)', dose2: '2.25g(6時間毎)', dose3: '2.25g(6〜8時間毎)', dose4: '2.25g(8時間毎)' },
+            { name: 'セファゾリン', product: 'セファメジン', dose1: '1〜2g(8時間毎)', dose2: '1〜2g(12時間毎)', dose3: '1g(12時間毎)', dose4: '1g(24時間毎)' },
+            { name: 'セフメタゾール', product: 'セフメタゾン', dose1: '1g(6〜8時間毎)', dose2: '1g(8〜12時間毎)', dose3: '1g(12〜24時間毎)', dose4: '1g(24時間毎)' },
+            { name: 'セフォチアム', product: 'パンスポリン', dose1: '1g(6〜8時間毎)', dose2: '1g(12時間毎)', dose3: '1g(24時間毎)', dose4: '1g(24時間毎)' },
+            { name: 'セフトリアキソン', product: 'ロセフィン', dose1: '1〜2g(12〜24時間毎)\n(髄膜炎:2g[12時間毎])', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'セフォタキシム', product: 'セフォタックス、クラフォラン', dose1: '1〜2g(8時間毎)\n(髄膜炎:2g[4〜6時間毎])', dose2: '1〜2g(8時間毎)\n(髄膜炎:2g[8時間毎])', dose3: '1〜2g(12時間毎)\n(髄膜炎:2g[8時間毎])', dose4: '1〜2g(12〜24時間毎)\n(髄膜炎:2g[12時間毎])' },
+            { name: 'セフタジジム', product: 'モダシン', dose1: '1〜2g(8時間毎)', dose2: '1〜2g(12時間毎)', dose3: '1〜2g(24時間毎)', dose4: '1g(24時間毎)' },
+            { name: 'セフォペラゾン/スルバクタム', product: 'スルペラゾン', dose1: '2g(12時間毎)', dose2: '2g(12時間毎)', dose3: '2g(12時間毎)', dose4: '2g(24時間毎)' },
+            { name: 'セフェピム', product: 'マキシピーム', dose1: '1g(8時間毎)\n(FN・重症緑膿菌:2g[8〜12時間毎])\n(髄膜炎:2g[8時間毎])', dose2: '1g(12時間毎)\n(FN・重症緑膿菌:2g[12時間毎])\n(髄膜炎:1g[8時間毎])', dose3: '1g(12時間毎)\n(FN・重症緑膿菌:2g[24時間毎])\n(髄膜炎:1g[12時間毎])', dose4: '0.5〜1g(24時間毎)\n(FN・重症緑膿菌:1g[24時間毎])\n(髄膜炎:1g[24時間毎])' },
+            { name: 'アズトレオナム', product: 'アザクタム', dose1: '1〜2g(8時間毎)', dose2: '1〜2g(12時間毎)', dose3: '1〜2g(24時間毎)', dose4: '0.5〜1g(24時間毎)' },
+            { name: 'メロペネム', product: 'メロペン', dose1: '1g(8時間毎)\n(髄膜炎:2g[8時間毎])', dose2: '1g(12時間毎)\n(髄膜炎:1g[8時間毎])', dose3: '0.5g(12時間毎)\n(髄膜炎:1g[12時間毎])', dose4: '0.5g(24時間毎)\n(髄膜炎:1g[24時間毎])' },
+            { name: 'ミノサイクリン', product: 'ミノマイシン', dose1: '100mg(12時間毎)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'アジスロマイシン', product: 'ジスロマック', dose1: '500mg(24時間毎)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'クリンダマイシン', product: 'ダラシンS', dose1: '600mg(8時間毎)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'シプロフロキサシン', product: 'シプロキサン', dose1: '400mg(8〜12時間毎)', dose2: '400mg(12時間毎)', dose3: '400mg(24時間毎)', dose4: '400mg(24時間毎)' },
+            { name: 'レボフロキサシン', product: 'クラビット', dose1: '500mg(24時間毎)', dose2: '[CrCl:20〜50]\n初日500mg\n⇒2日目より250mg(24時間毎)', dose3: '[CrCl:20〜50]\n初日500mg\n⇒2日目より250mg(24時間毎)', dose4: '[CrCl:<20]\n初日500mg\n⇒3日目より250mg(48時間毎)' },
+            { name: 'ST合剤', product: 'バクトラミン', dose1: 'TMPとして2.5〜5mg/kg(6〜12時間毎)', dose2: 'TMPとして2.5mg/kg(6〜12時間毎)', dose3: 'TMPとして2.5mg/kg(6〜12時間毎)', dose4: '専門家へコンサルト\n(TMPとして5mg/kg[24時間毎])' },
+            { name: 'メトロニダゾール', product: 'アネメトロ', dose1: '500mg(6〜8時間毎)', dose2: '500mg(12時間毎)', dose3: '500mg(12時間毎)', dose4: '500mg(24時間毎)' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'フルコナゾール', product: 'ジフルカン', dose1: '初日800mg\n⇒2日目より400mg(24時間毎)', dose2: '初日400mg\n⇒2日目より200mg(24時間毎)', dose3: '初日400mg\n⇒2日目より200mg(24時間毎)', dose4: '初日400mg\n⇒2日目より200mg(24時間毎)' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'ホスフルコナゾール', product: 'プロジフ', dose1: '初日〜2日目800mg(24時間毎)\n⇒3日目より400mg(24時間毎)', dose2: '初日〜2日目400mg(24時間毎)\n⇒3日目より200mg(24時間毎)', dose3: '初日〜2日目400mg(24時間毎)\n⇒3日目より200mg(24時間毎)', dose4: '初日〜2日目400mg(24時間毎)\n⇒3日目より200mg(24時間毎)' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'ボリコナゾール', product: 'ブイフェンド', dose1: '初日6mg/kg(12時間毎)\n⇒2日目より3〜4mg/kg(12時間毎)', dose2: '初日6mg/kg(12時間毎)\n⇒2日目より3〜4mg/kg(12時間毎)', dose3: '静注は避け、経口薬での治療を行なう\n(静注添加剤が蓄積するため)', dose4: '静注は避け、経口薬での治療を行なう\n(静注添加剤が蓄積するため)' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'ミカファンギン', product: 'ファンガード', dose1: 'Candida:100mg(24時間毎)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'カスポファンギン', product: 'カンサイダス', dose1: '初日70mg\n⇒2日目より50mg(24時間毎)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'L-AmB', product: 'アムビゾーム', dose1: '3〜5mg/kg(24時間毎)', dose2: '原則として投与量・間隔の調整は不要', dose3: '原則として投与量・間隔の調整は不要', dose4: '原則として投与量・間隔の調整は不要' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'アシクロビル', product: 'ゾビラックス', dose1: '5mg/kg(8時間毎)\n(脳炎:10mg/kg[8時間毎])', dose2: '5mg/kg(12時間毎)\n(脳炎:10mg/kg[12時間毎])', dose3: '5mg/kg(24時間毎)\n(脳炎:10mg/kg[24時間毎])', dose4: '2.5mg/kg(24時間毎)\n(脳炎:5mg/kg[24時間毎])' }
+        ];
+
+        const ANTIBIOTICS_ORAL = [
+            { name: 'アモキシシリン', product: 'サワシリン', dose1: '500mg(1日3回)\n(肺炎:1日4回)', dose2: '500mg(1日2〜3回)', dose3: '500mg(1日2回)', dose4: '500mg(1日1回)' },
+            { name: 'アモキシシリン/クラブラン酸', product: 'オーグメンチン', dose1: '750mg(1日3回)\nまたは375mg+AMPC250mg(1日3回)', dose2: '750mg(1日2回)\nまたは375mg+AMPC250mg(1日2回)', dose3: '375〜750mg(1日2回)\nまたは375mg+AMPC250mg(1日2回)', dose4: '375〜750mg(1日1回)\nまたは375mg+AMPC250mg(1日1回)' },
+            { name: 'セファレキシン', product: 'ケフレックス', dose1: '500mg(1日3〜4回)', dose2: '250mg(1日4回)', dose3: '250mg(1日3回)', dose4: '250mg(1日2〜3回)' },
+            { name: 'クラリスロマイシン', product: 'クラリシッド', dose1: '200〜400mg(1日2回)', dose2: '200〜400mg(1日2回)', dose3: '200〜400mg(1日2回)', dose4: '200mg(1日1回)' },
+            { name: 'アジスロマイシン', product: 'ジスロマック', dose1: '500mg(1日1回)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'ミノサイクリン', product: 'ミノマイシン', dose1: '初日100mg(1日2回)\n⇒2日目より100mg(1日1〜2回)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'ドキシサイクリン', product: 'ビブラマイシン', dose1: '初日100mg(1日2回)\n⇒2日目より100mg(1日1〜2回)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'クリンダマイシン', product: 'ダラシン', dose1: '300〜450mg(1日3〜4回)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { name: 'シプロフロキサシン', product: 'シプロキサン', dose1: '200〜400mg(1日2回)', dose2: '400mg(1日1回)', dose3: '200mg(1日1回)', dose4: '200mg(1日1回)' },
+            { name: 'レボフロキサシン', product: 'クラビット', dose1: '500mg(1日1回)', dose2: '[CrCl:20〜50]\n初日500mg⇒2日目より250mg(1日1回)', dose3: '[CrCl:20〜50]\n初日500mg⇒2日目より250mg(1日1回)', dose4: '[CrCl:<20]\n初日500mg⇒3日目より250mg(2日に1回)' },
+            { name: 'ST合剤', product: 'バクタ', dose1: 'SMX800mg/TMP160mg(1日2回)\n(PCP:4錠 1日3〜4回)', dose2: 'SMX400〜800mg/TMP80〜160mg(1日2回)\n(PCP:4錠 1日2回)', dose3: 'SMX400〜800mg/TMP80〜160mg(1日2回)\n(PCP:4錠 1日2回)', dose4: '要注意⇒専門家へコンサルト\n(目安:TMP 5mg/kg[24時間毎])' },
+            { name: 'メトロニダゾール', product: 'フラジール', dose1: '500mg(1日3回)', dose2: '500mg(1日2回)', dose3: '500mg(1日2回)', dose4: '500mg(1日2回)' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'フルコナゾール', product: 'ジフルカン', dose1: '400mg(1日1回)', dose2: '200mg(1日1回)', dose3: '200mg(1日1回)', dose4: '200mg(1日1回)' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'ボリコナゾール', product: 'ブイフェンド', dose1: '[40kg以上]初300mg(1日2回)⇒2日目150〜200mg(1日2回)\n[40kg以下]初150mg(1日2回)⇒2日目100mg(1日2回)', dose2: '投与量・間隔の調整は不要', dose3: '投与量・間隔の調整は不要', dose4: '投与量・間隔の調整は不要' },
+            { category: '抗真菌薬・抗ウイルス薬', name: 'オセルタミビル', product: 'タミフル', dose1: '75mg(1日2回)', dose2: '75mg(1日1回)', dose3: '75mg(1日1回)', dose4: '75mg(1日1回)' }
+        ];
+
+        // --- 抗菌薬投与法コンポーネント ---
+        function AntibioticDosage() {
+            const [mode, setMode] = useState('menu'); // 'menu', 'list_menu', 'iv', 'oral', 'search'
+            const [searchTerm, setSearchTerm] = useState('');
+
+            // 戻るロジック (単独アプリ用)
+            const handleBack = () => {
+                if (mode === 'menu') {
+                    // トップメニューでは何もしない (またはブラウザバックを促す)
+                } else if (mode === 'list_menu') {
+                    setMode('menu');
+                } else if (mode === 'search') {
+                    setMode('menu');
+                    setSearchTerm('');
+                } else if (mode === 'iv' || mode === 'oral') {
+                    setMode('list_menu');
+                }
+            };
+
+            const getFilteredDrugs = () => {
+                const term = searchTerm.toLowerCase();
+                const allDrugs = [
+                    ...ANTIBIOTICS_IV.map(d => ({...d, type: 'iv', typeLabel: '静注'})),
+                    ...ANTIBIOTICS_ORAL.map(d => ({...d, type: 'oral', typeLabel: '経口'}))
+                ];
+                
+                if (!term) return [];
+                
+                return allDrugs.filter(drug => 
+                    drug.name.toLowerCase().includes(term) || 
+                    drug.product.toLowerCase().includes(term)
+                );
+            };
+
+            const renderTable = (data, subTitle, icon, backMode) => (
+                <div className="w-full">
+                    <div className="mb-4 flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            {icon} {subTitle}
+                        </h2>
+                    </div>
+                    
+                    {mode === 'search' && (
+                        <div className="mb-6">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="薬剤名を入力 (例: アモキシシリン、サワシリン)"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                                />
+                            </div>
+                            {data.length === 0 && searchTerm && (
+                                <p className="text-center text-gray-400 mt-4">該当する薬剤が見つかりません</p>
+                            )}
+                        </div>
+                    )}
+
+                    {data.length > 0 && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left whitespace-nowrap">
+                                    <thead className="bg-slate-100 text-slate-600 font-bold border-b border-gray-200">
+                                        <tr>
+                                            <th className="p-3 sticky left-0 bg-slate-100 z-10 shadow-r">薬剤名</th>
+                                            <th className="p-3 text-center min-w-[150px]">CrCl &gt; 50<br/><span className="text-xs font-normal">(mL/min)</span></th>
+                                            <th className="p-3 text-center min-w-[150px]">CrCl 30 〜 50<br/><span className="text-xs font-normal">(mL/min)</span></th>
+                                            <th className="p-3 text-center min-w-[150px]">CrCl 10 〜 30<br/><span className="text-xs font-normal">(mL/min)</span></th>
+                                            <th className="p-3 text-center min-w-[150px]">CrCl &lt; 10<br/><span className="text-xs font-normal">(mL/min)</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {data.map((drug, index) => {
+                                            const doses = [drug.dose1, drug.dose2, drug.dose3, drug.dose4];
+                                            const cells = [];
+                                            let i = 0;
+                                            while (i < doses.length) {
+                                                let colspan = 1;
+                                                while (i + colspan < doses.length && doses[i] === doses[i + colspan]) {
+                                                    colspan++;
+                                                }
+                                                cells.push(
+                                                    <td 
+                                                        key={i} 
+                                                        colSpan={colspan}
+                                                        className="p-3 align-top whitespace-pre-wrap text-slate-600 leading-relaxed text-center border-r border-gray-50 last:border-r-0"
+                                                    >
+                                                        {doses[i]}
+                                                    </td>
+                                                );
+                                                i += colspan;
+                                            }
+
+                                            return (
+                                                <tr key={index} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="p-3 align-top sticky left-0 bg-white z-10 border-r border-gray-100">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <div className="font-bold text-slate-700">{drug.name}</div>
+                                                            {drug.typeLabel && (
+                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${drug.type === 'iv' ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                                        {drug.typeLabel}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">{drug.product}</div>
+                                                    </td>
+                                                    {cells}
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+
+            let content;
+            if (mode === 'iv') content = renderTable(ANTIBIOTICS_IV, '静注抗菌薬の投与方法 (腎機能別)', <Syringe className="w-6 h-6 text-orange-500" />, 'list_menu');
+            else if (mode === 'oral') content = renderTable(ANTIBIOTICS_ORAL, '経口抗菌薬の投与方法 (腎機能別)', <Pill className="w-6 h-6 text-emerald-500" />, 'list_menu');
+            else if (mode === 'search') content = renderTable(getFilteredDrugs(), '薬剤名検索', <Search className="w-6 h-6 text-blue-500" />, 'menu');
+            else if (mode === 'menu') {
+                content = (
+                    <div className="p-4 flex flex-col gap-6 items-center justify-center min-h-[50vh]">
+                        {/* メニュー画面では戻るボタンは表示しない */}
+                        <h2 className="text-xl font-bold text-slate-700">メニューを選択してください</h2>
+                        <div className="grid grid-cols-1 gap-4 w-full max-w-lg">
+                            <button 
+                                onClick={() => setMode('search')}
+                                className="bg-white p-6 rounded-xl shadow-sm border-2 border-blue-100 flex items-center gap-4 hover:shadow-md hover:border-blue-300 transition-all group"
+                            >
+                                <div className="bg-blue-100 p-3 rounded-full group-hover:bg-blue-200 transition-colors">
+                                    <Search className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <span className="text-lg font-bold text-slate-700">薬剤名検索</span>
+                                <ArrowRight className="w-5 h-5 text-gray-300 ml-auto group-hover:text-blue-400 transition-colors" />
+                            </button>
+
+                            <button 
+                                onClick={() => setMode('list_menu')}
+                                className="bg-white p-6 rounded-xl shadow-sm border-2 border-slate-100 flex items-center gap-4 hover:shadow-md hover:border-slate-300 transition-all group"
+                            >
+                                <div className="bg-slate-100 p-3 rounded-full group-hover:bg-slate-200 transition-colors">
+                                    <TableIcon className="w-6 h-6 text-slate-600" />
+                                </div>
+                                <span className="text-lg font-bold text-slate-700">一覧表を確認する</span>
+                                <ArrowRight className="w-5 h-5 text-gray-300 ml-auto group-hover:text-slate-400 transition-colors" />
+                            </button>
+                        </div>
+                        <div className="mt-8 text-center">
+                            <p className="text-xs text-gray-400">参考文献：感染症診療の手引き</p>
+                        </div>
+                    </div>
+                );
+            }
+            else if (mode === 'list_menu') {
+                content = (
+                    <div className="p-4 flex flex-col gap-6 items-center justify-center min-h-[50vh]">
+                        <div className="w-full max-w-2xl mb-2">
+                            <button onClick={() => setMode('menu')} className="p-2 -ml-2 rounded-full hover:bg-gray-200 transition-colors self-start">
+                                <ChevronLeft className="w-6 h-6 text-slate-600" />
+                            </button>
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-700">投与経路を選択してください</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+                            <button 
+                                onClick={() => setMode('oral')}
+                                className="bg-white p-8 rounded-2xl shadow-sm border-2 border-emerald-100 flex flex-col items-center gap-4 hover:shadow-md hover:border-emerald-300 transition-all group"
+                            >
+                                <div className="bg-emerald-100 p-4 rounded-full group-hover:bg-emerald-200 transition-colors">
+                                    <Pill className="w-10 h-10 text-emerald-600" />
+                                </div>
+                                <span className="text-xl font-bold text-slate-700">経口 (Oral)</span>
+                            </button>
+    
+                            <button 
+                                onClick={() => setMode('iv')}
+                                className="bg-white p-8 rounded-2xl shadow-sm border-2 border-orange-100 flex flex-col items-center gap-4 hover:shadow-md hover:border-orange-300 transition-all group"
+                            >
+                                <div className="bg-orange-100 p-4 rounded-full group-hover:bg-orange-200 transition-colors">
+                                    <Syringe className="w-10 h-10 text-orange-600" />
+                                </div>
+                                <span className="text-xl font-bold text-slate-700">静注 (IV)</span>
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50 flex flex-col items-center font-sans text-gray-800 pb-12">
+                    <header className="w-full bg-slate-800 text-white py-4 px-6 shadow-md flex justify-center sticky top-0 z-20">
+                        <div className="max-w-4xl w-full">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    {mode !== 'menu' && (
+                                        <button onClick={handleBack} className="p-1 -ml-2 rounded-full hover:bg-slate-700 transition-colors">
+                                            <ChevronLeft className="w-6 h-6 text-white" />
+                                        </button>
+                                    )}
+                                    <Pill className="w-6 h-6 text-emerald-400" />
+                                    <h1 className="text-xl font-bold tracking-wide">抗菌薬投与法</h1>
+                                </div>
+                            </div>
+                            <div className="flex items-center text-xs text-slate-400 mt-1 ml-10">
+                                <span>監修：薬剤師さっぺい🐨</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="w-full max-w-4xl px-4 py-8 space-y-6">
+                        {content}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AntibioticDosage />);
+    </script>
+</body>
+</html>

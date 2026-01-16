@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抗菌薬投与期間早見表</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Noto Sans JP', sans-serif; background-color: #f8fafc; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-slate-800 antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        // アイコン
+        const ChevronLeft = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6"/></svg>);
+        const Clock = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>);
+        const Search = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>);
+        const Lungs = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.2-1.1.7l-1.2 4 6 3.2-2 2-4-1.5L1 16l7.4 1.6c.7.1 1.4-.1 1.9-.4l4.1-2.3L19 18l.8 1.2z"/></svg>); // Placeholder for Lungs
+        const Stethoscope = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H9a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V9a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v3a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6v-4a6 6 0 0 1 6-6h2"/></svg>);
+
+        // --- データセット (p.22-25に基づく) ---
+        const DURATION_DATA = [
+            {
+                category: '呼吸器感染症',
+                items: [
+                    { name: '市中肺炎', duration: '5〜7日間', detail: '軽症では静注薬は必ずしも必要でない。肺炎球菌菌血症を伴う場合は10〜14日間。' },
+                    { name: '院内肺炎', duration: '7日間', detail: '感染症が落ち着けば7日間。初期治療は静注薬で開始。' },
+                    { name: 'VAP (人工呼吸器関連肺炎)', duration: '7〜14日間', detail: 'ブドウ糖非発酵菌では14日間までの延長を検討。' },
+                    { name: '急性細菌性副鼻腔炎', duration: '5〜7日間', detail: '入院を要する重症例では静注薬を検討。' },
+                ]
+            },
+            {
+                category: '腎・泌尿器感染症',
+                items: [
+                    { name: '急性単純性膀胱炎', duration: '3日間', detail: 'ST合剤では3日間。βラクタムでは7日間を検討。' },
+                    { name: '腎盂腎炎', duration: '10〜14日間', detail: '軽症では初期から経口薬を検討。一部の抗菌薬（フルオロキノロン等）ではより短期間も検討。' },
+                    { name: '急性前立腺炎', duration: '2〜4週間', detail: '静注薬での最小治療期間の推奨なし。' },
+                ]
+            },
+            {
+                category: '皮膚軟部組織感染症',
+                items: [
+                    { name: '蜂窩織炎', duration: '5〜14日間', detail: '重症度によってより長期間も検討。レンサ球菌による菌血症では14日間を検討。' },
+                ]
+            },
+            {
+                category: '腹部骨盤内感染症',
+                items: [
+                    { name: '急性胆管炎・胆嚢炎', duration: '4〜7日間', detail: '感染巣がコントロールされれば4〜7日間。初期治療は静注薬で開始。' },
+                    { name: '特発性細菌性腹膜炎', duration: '5〜7日間', detail: '' },
+                    { name: 'CDI (C.difficile)', duration: '10日間', detail: '治療反応に乏しい場合、14日間まで延長を検討。' },
+                ]
+            },
+            {
+                category: '中枢神経系感染症',
+                items: [
+                    { name: '細菌性髄膜炎 (肺炎球菌)', duration: '10〜14日間', detail: '静注薬での治療完遂が望ましい。' },
+                    { name: '細菌性髄膜炎 (髄膜炎菌/インフルエンザ菌)', duration: '7日間', detail: '静注薬での治療完遂が望ましい。' },
+                    { name: '細菌性髄膜炎 (B群溶連菌/グラム陰性桿菌/リステリア)', duration: '14〜21日間', detail: 'B群溶連菌:14-21日, GNR/リステリア:21日' },
+                ]
+            },
+            {
+                category: '血流・血管内感染症',
+                items: [
+                    { name: 'CRBSI (黄色ブドウ球菌)', duration: '14〜28日間以上', detail: '血液培養陰性化から14〜28日間以上。複雑性（血管内人工物あり等）は28日以上。' },
+                    { name: 'CRBSI (CNS)', duration: '5〜7日間', detail: 'カテーテル抜去が前提。' },
+                    { name: 'CRBSI (腸内細菌科/腸球菌)', duration: '7〜14日間', detail: 'カテーテル抜去が前提。' },
+                    { name: 'CRBSI (Candida)', duration: '14日間', detail: '血液培養陰性化から14日間（眼病変がない場合）。' },
+                    { name: '感染性心内膜炎', duration: '4〜6週間以上', detail: '血液培養陰性化から4〜6週間以上。菌種や人工弁の有無により異なる。' },
+                ]
+            }
+        ];
+
+        function AntibioticDuration({ onBack }) {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [activeCategory, setActiveCategory] = useState('すべて');
+
+            const categories = ['すべて', ...DURATION_DATA.map(d => d.category)];
+
+            const filteredData = DURATION_DATA.map(group => {
+                if (activeCategory !== 'すべて' && group.category !== activeCategory) return null;
+                
+                const filteredItems = group.items.filter(item => 
+                    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    group.category.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+
+                if (filteredItems.length === 0) return null;
+
+                return { ...group, items: filteredItems };
+            }).filter(group => group !== null);
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex flex-col items-center font-sans text-slate-800 pb-12 fade-in">
+                    
+                    {/* ヘッダー */}
+                    <header className="w-full bg-slate-800 text-white py-4 px-6 shadow-md flex justify-center sticky top-0 z-20">
+                        <div className="max-w-4xl w-full flex items-center gap-3">
+                            <button onClick={onBack} className="p-1 -ml-2 rounded-full hover:bg-slate-700 transition-colors">
+                                <ChevronLeft className="w-6 h-6 text-white" />
+                            </button>
+                            <Clock className="w-6 h-6 text-emerald-400" />
+                            <h1 className="text-xl font-bold tracking-wide">抗菌薬投与期間</h1>
+                        </div>
+                    </header>
+
+                    <main className="w-full max-w-4xl px-3 py-6 space-y-6">
+                        
+                        {/* 検索・フィルタエリア */}
+                        <div className="space-y-4 sticky top-[70px] z-10">
+                            {/* 検索ボックス */}
+                            <div className="relative shadow-sm">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Search className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+                                    className="block w-full pl-10 pr-3 py-3 border-none rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-md"
+                                    placeholder="疾患名で検索 (例: 肺炎, 腎盂腎炎...)"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+
+                            {/* カテゴリタブ (横スクロール) */}
+                            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                {categories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setActiveCategory(cat)}
+                                        className={`
+                                            whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm
+                                            ${activeCategory === cat 
+                                                ? 'bg-emerald-600 text-white shadow-md' 
+                                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}
+                                        `}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* リスト表示エリア */}
+                        <div className="space-y-6">
+                            {filteredData.length > 0 ? (
+                                filteredData.map((group, index) => (
+                                    <div key={index} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                        <div className="bg-slate-50 px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+                                            <Stethoscope className="w-4 h-4 text-slate-400" />
+                                            <h3 className="font-bold text-slate-700 text-sm">{group.category}</h3>
+                                        </div>
+                                        <div className="divide-y divide-slate-50">
+                                            {group.items.map((item, idx) => (
+                                                <div key={idx} className="p-5 hover:bg-slate-50 transition-colors">
+                                                    <div className="flex justify-between items-start gap-4 mb-2">
+                                                        <h4 className="font-bold text-slate-800 text-lg">{item.name}</h4>
+                                                        <span className="shrink-0 bg-emerald-100 text-emerald-800 text-sm font-bold px-3 py-1 rounded-full">
+                                                            {item.duration}
+                                                        </span>
+                                                    </div>
+                                                    {item.detail && (
+                                                        <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                            💡 {item.detail}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-10 text-slate-400">
+                                    <p>該当する疾患が見つかりません</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-8 text-center pb-8">
+                            <p className="text-xs text-gray-400">
+                                参考文献：感染症診療の手引き 第4版 (p.22-25)
+                                <br/>※患者の病勢や背景により治療期間は異なります
+                            </p>
+                        </div>
+
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AntibioticDuration onBack={() => console.log("Back")} />);
+    </script>
+</body>
+</html>
