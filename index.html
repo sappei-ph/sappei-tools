@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>さっぺい臨床ツール</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Noto Sans JP) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { font-family: 'Noto Sans JP', sans-serif; }
+        /* カスタムアニメーション */
+        .card-hover { transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1); }
+        .card-hover:active { transform: scale(0.98); }
+        
+        /* ロゴアイコンの回転アニメーション */
+        @keyframes spin-y-pause {
+            0%, 75% { transform: rotateY(0deg); }
+            85% { transform: rotateY(180deg); }
+            100% { transform: rotateY(360deg); }
+        }
+        .logo-spin { animation: spin-y-pause 5s ease-in-out infinite; }
+
+        /* ロゴアイコンのアニメーション：ハートビート（鼓動） */
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            5% { transform: scale(1.1); }
+            10% { transform: scale(1); }
+            15% { transform: scale(1.1); }
+            20% { transform: scale(1); }
+            100% { transform: scale(1); }
+        }
+        .logo-heartbeat { animation: heartbeat 4s ease-in-out infinite; transform-origin: center; }
+
+        /* 電光掲示板風アニメーション（無限ループ版） */
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); } /* 全体の半分（1セット分）移動したらリセット */
+        }
+        .animate-marquee {
+            animation: marquee 20s linear infinite; /* 速度調整 */
+            display: flex;
+            width: fit-content; /* 中身に合わせて幅を確保 */
+        }
+
+        /* グラデーションアニメーション */
+        @keyframes gradient-x {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .animate-gradient-x {
+            background-size: 200% 200%;
+            animation: gradient-x 6s ease infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-700 selection:bg-blue-100 selection:text-blue-700">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        // --- アイコンコンポーネント ---
+        const SearchIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        );
+        const Activity = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        );
+        const ArrowRight = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6"/></svg>
+        );
+        const Database = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        );
+        const Smile = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></svg>
+        );
+        const Pill = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="10" x="3" y="7" rx="5" /><line x1="12" x2="12" y1="7" y2="17" /></svg>
+        );
+        
+        // 新ロゴアイコン（ポケット＋医療十字）
+        const NewClinicalIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {/* ポケットの形（下部が丸い四角） */}
+                <path d="M5 5h14v7a7 7 0 0 1-7 7 7 7 0 0 1-7-7V5z" />
+                {/* 医療の十字（中央） */}
+                <path d="M12 9v6" />
+                <path d="M9 12h6" />
+                {/* ポケットの上部のステッチ風ライン（オプション） */}
+                <path d="M5 8h14" strokeWidth="1.5" strokeOpacity="0.3" strokeDasharray="2 2" />
+            </svg>
+        );
+
+        // --- メニューデータ ---
+        const MENU_ITEMS = [
+            {
+                id: 'opioid',
+                title: 'オピオイド換算',
+                subtitle: 'オピオイドの換算・切り替えタイミングを確認できる',
+                icon: Activity,
+                colorClass: 'text-blue-600',
+                bgClass: 'bg-blue-100',
+                borderHover: 'group-hover:border-blue-300',
+                tags: ['#医療用麻薬', '#オピオイド', '#緩和']
+            },
+            {
+                id: 'antibiotic',
+                title: '抗菌薬投与法',
+                subtitle: '腎機能別の抗菌薬の投与量を確認できる',
+                icon: Pill,
+                colorClass: 'text-emerald-600',
+                bgClass: 'bg-emerald-100',
+                borderHover: 'group-hover:border-emerald-300',
+                tags: ['#抗菌薬']
+            },
+            {
+                id: 'pain',
+                title: '痛みの評価スケール',
+                subtitle: 'NRS・FPSを確認',
+                icon: Smile,
+                colorClass: 'text-yellow-600',
+                bgClass: 'bg-yellow-100',
+                borderHover: 'group-hover:border-yellow-300',
+                tags: ['#疼痛', '#オピオイド', '#医療用麻薬']
+            },
+            {
+                id: 'bristol',
+                title: 'ブリストル便形状スケール',
+                subtitle: '便の性状を判定・確認できるスケール',
+                icon: Database,
+                colorClass: 'text-amber-600',
+                bgClass: 'bg-amber-100',
+                borderHover: 'group-hover:border-amber-300',
+                tags: ['#下剤', '#便秘']
+            }
+        ];
+
+        // --- お知らせデータ ---
+        const NEWS_ITEMS = [
+            "📢 このアプリは順次アップデートしていきます！",
+            "🔍 検索ツールバーから必要なツールをすぐに探せます",
+            "📢 今後も便利な機能を続々追加予定です",
+            "💊 薬剤師さっぺい監修"
+        ];
+
+        // --- メニューボタン用コンポーネント ---
+        const MenuCard = ({ onClick, icon: Icon, colorClass, bgClass, title, subtitle, borderHover, tags }) => (
+            <button 
+                onClick={onClick}
+                className={`w-full bg-white p-5 rounded-xl border-2 border-slate-200 flex items-center gap-5 card-hover group text-left relative overflow-hidden transition-colors ${borderHover}`}
+            >
+                {/* アイコンエリア */}
+                <div className={`flex-shrink-0 w-16 h-16 rounded-lg flex items-center justify-center shadow-sm ${bgClass}`}>
+                    <Icon className={`w-8 h-8 ${colorClass}`} />
+                </div>
+
+                {/* テキストエリア */}
+                <div className="flex-1 min-w-0 z-10">
+                    <h2 className="font-extrabold text-slate-800 text-xl leading-tight group-hover:text-black transition-colors">
+                        {title}
+                    </h2>
+                    <p className="text-slate-500 text-sm font-bold mt-1 leading-snug group-hover:text-slate-600 transition-colors">
+                        {subtitle}
+                    </p>
+                    
+                    {/* ハッシュタグエリア */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                        {tags && tags.map((tag, index) => (
+                            <span key={index} className="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-md group-hover:bg-slate-200 transition-colors">
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 矢印 */}
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-slate-200 transition-all z-10">
+                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600" />
+                </div>
+            </button>
+        );
+
+        // --- ホーム画面コンポーネント ---
+        function HomeScreen({ onNavigate }) {
+            const [searchTerm, setSearchTerm] = useState('');
+
+            // 検索フィルタリング処理
+            const filteredItems = MENU_ITEMS.filter(item => {
+                const term = searchTerm.toLowerCase().replace(/\s+/g, '');
+                const title = item.title.toLowerCase().replace(/\s+/g, '');
+                const subtitle = item.subtitle.toLowerCase().replace(/\s+/g, '');
+                // タグも検索対象に含める
+                const tagsStr = item.tags.join('').toLowerCase().replace(/\s+/g, '');
+                
+                return title.includes(term) || subtitle.includes(term) || tagsStr.includes(term);
+            });
+
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center p-6 relative bg-slate-100">
+                    {/* 背景装飾 (控えめなグリッド) */}
+                    <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#444 1px, transparent 1px)', backgroundSize: '24px 24px'}}></div>
+
+                    <div className="max-w-md w-full space-y-6 relative z-10">
+                        
+                        {/* ヘッダーエリア */}
+                        <div className="flex justify-center py-4">
+                            <div className="bg-white px-8 py-8 rounded-3xl shadow-sm border-2 border-slate-200 flex flex-col items-center relative w-full overflow-hidden">
+                                
+                                {/* Produced by タグ (右上) */}
+                                <div className="absolute top-0 right-0 bg-slate-100 rounded-bl-xl border-l border-b border-slate-200 px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
+                                    <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Prod. by Sappei</span>
+                                    <span className="text-xs">🐨</span>
+                                </div>
+
+                                <div className="mt-2 mb-4 w-full relative">
+                                    {/* 背景の光彩効果 */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-24 bg-gradient-to-r from-blue-100 to-indigo-100 blur-3xl opacity-60 rounded-full pointer-events-none"></div>
+
+                                    {/* タイトルエリア */}
+                                    <div className="relative flex flex-col items-center z-10">
+                                        
+                                        {/* 上部装飾ラベル */}
+                                        <div className="flex items-center gap-3 mb-2 opacity-60">
+                                            <div className="h-px w-8 bg-gradient-to-r from-transparent to-slate-400"></div>
+                                            <span className="text-[10px] font-bold tracking-[0.3em] text-slate-500 uppercase">Sappei presents</span>
+                                            <div className="h-px w-8 bg-gradient-to-l from-transparent to-slate-400"></div>
+                                        </div>
+
+                                        {/* メインタイトル */}
+                                        <h1 className="relative text-3xl md:text-4xl font-black tracking-tight text-center py-1">
+                                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-700 via-slate-900 to-slate-700 animate-gradient-x drop-shadow-sm">
+                                                さっぺい臨床ツール
+                                            </span>
+                                            {/* 先進的なアクセントドット（脈打つ光） */}
+                                            <span className="absolute -top-1 -right-2 flex h-2.5 w-2.5">
+                                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500 border-2 border-white"></span>
+                                            </span>
+                                        </h1>
+
+                                        {/* 下部サブタイトル */}
+                                        <div className="mt-2 inline-flex items-center gap-2 px-4 py-1 rounded-full bg-slate-50 border border-slate-100 shadow-[inset_0_1px_3px_rgba(0,0,0,0.02)]">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                            <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+                                                Advanced Medical Utilities
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* お知らせエリア（電光掲示板風・無限ループ） */}
+                                <div className="w-full bg-slate-50 rounded-lg overflow-hidden py-2 border border-slate-200 mt-4 relative">
+                                    <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-50 to-transparent z-10"></div>
+                                    <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent z-10"></div>
+                                    <div className="animate-marquee">
+                                        {/* セット1 */}
+                                        <div className="flex items-center gap-16 px-8 whitespace-nowrap text-xs font-bold text-slate-500">
+                                            {NEWS_ITEMS.map((item, i) => <span key={i}>{item}</span>)}
+                                        </div>
+                                        {/* セット2 (複製) - シームレスにつなぐため */}
+                                        <div className="flex items-center gap-16 px-8 whitespace-nowrap text-xs font-bold text-slate-500">
+                                            {NEWS_ITEMS.map((item, i) => <span key={`dup-${i}`}>{item}</span>)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 検索バー */}
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <SearchIcon className="h-6 w-6 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                            </div>
+                            <input
+                                type="text"
+                                className="block w-full pl-12 pr-4 py-4 bg-white border-2 border-slate-200 rounded-2xl leading-5 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-700 shadow-sm"
+                                placeholder="ツールを検索する..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        {/* メニューボタンエリア */}
+                        <div className="grid gap-4">
+                            {filteredItems.length > 0 ? (
+                                filteredItems.map(item => (
+                                    <MenuCard 
+                                        key={item.id}
+                                        onClick={() => onNavigate(item.id)}
+                                        icon={item.icon}
+                                        title={item.title}
+                                        subtitle={item.subtitle}
+                                        colorClass={item.colorClass}
+                                        bgClass={item.bgClass}
+                                        borderHover={item.borderHover}
+                                        tags={item.tags}
+                                    />
+                                ))
+                            ) : (
+                                <div className="text-center py-10 text-slate-400 font-bold bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                                    <p>該当するツールが見つかりません</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* フッター */}
+                        <div className="text-center pt-2">
+                            <p className="text-[10px] text-slate-400 font-bold tracking-widest">
+                                CLINICAL SUPPORT TOOLS ver 1.2.0
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- メインアプリコンポーネント ---
+        function App() {
+            const handleNavigate = (screen) => {
+                const urls = {
+                    'opioid': 'https://sappei-ph.github.io/opioid-tool/',
+                    'antibiotic': 'https://sappei-ph.github.io/antibiotic-tool/',
+                    'pain': 'https://sappei-ph.github.io/pain-scale/',
+                    'bristol': 'https://sappei-ph.github.io/bristol-scale/'
+                };
+
+                if (urls[screen]) {
+                    // プレビュー環境では新しいタブで開くことを推奨しますが、
+                    // 元のコードの挙動を再現しています。
+                    window.location.href = urls[screen];
+                }
+            };
+
+            return (
+                <HomeScreen onNavigate={handleNavigate} />
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

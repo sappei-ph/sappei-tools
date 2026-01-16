@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オピオイド換算ツール</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 必要なアイコンのみ抽出 ---
+        const Activity = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        );
+        const AlertTriangle = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        );
+        const Lock = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        );
+        const Unlock = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+        );
+        const Clock = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        );
+        const ChevronDown = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m6 9 6 6 6-6"/></svg>
+        );
+        const ArrowRight = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        );
+        const TableIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+        );
+        const X = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="M6 6 18 18"/></svg>
+        );
+        // Pill, Syringe, PatchはTIMING_GUIDELINES内で使用されるため必要
+        const Pill = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="10" x="3" y="7" rx="5" /><line x1="12" x2="12" y1="7" y2="17" /></svg>
+        );
+        const Syringe = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg>
+        );
+        const Patch = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="16" height="16" x="4" y="4" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M4 12h2"/><path d="M18 12h2"/><path d="M12 4v2"/><path d="M12 18v2"/></svg>
+        );
+
+        // --- オピオイドデータ ---
+        const DRUGS = [
+            { id: 'morphine_po', name: 'モルヒネ (経口)', tableName: '経口モルヒネ', equivalent: 30, type: 'po', unit: 'mg/日' },
+            { id: 'morphine_iv', name: 'モルヒネ (注射/静注・皮下注)', tableName: 'モルヒネ注', equivalent: 10, type: 'iv', unit: 'mg/日' },
+            { id: 'oxycodone_po', name: 'オキシコドン (経口)', tableName: '経口オキシコドン', equivalent: 20, type: 'po', unit: 'mg/日' },
+            { id: 'oxycodone_iv', name: 'オキシコドン (注射/静注・皮下注)', tableName: 'オキシコドン注', equivalent: 15, type: 'iv', unit: 'mg/日' },
+            { id: 'hydromorphone_po', name: 'ヒドロモルフォン (経口)', tableName: '経口ヒドロモルフォン', equivalent: 6, type: 'po', unit: 'mg/日' },
+            { id: 'hydromorphone_iv', name: 'ヒドロモルフォン (注射/静注・皮下注)', tableName: 'ヒドロモルフォン注', equivalent: 1.2, equivalent_source: 2.4, type: 'iv', unit: 'mg/日', isSpecial: true },
+            { id: 'fentanyl_patch', name: 'フェンタニル貼付剤', tableName: 'フェンタニル貼付剤', equivalent: 1, type: 'patch', unit: 'mg/日' },
+            { id: 'fentanyl_iv', name: 'フェンタニル (注射/静注・皮下注)', tableName: 'フェンタニル注', equivalent: 0.3, type: 'iv', unit: 'mg/日' },
+        ];
+
+        const TIMING_GUIDELINES = [
+            { 
+                title: (<div className="flex items-center flex-wrap gap-y-2 gap-x-2"><span className="flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-bold shadow-sm border border-blue-200">貼付剤<Patch className="w-4 h-4" /></span><div className="flex flex-col items-center px-1"><span className="text-[10px] font-bold text-slate-400 leading-none">切替</span><ArrowRight className="w-5 h-5 text-slate-400 mt-0.5" /></div><div className="flex items-center gap-1"><span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold shadow-sm border border-emerald-200">内服<Pill className="w-4 h-4" /></span><span className="text-gray-400 font-bold">・</span><span className="flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold shadow-sm border border-orange-200">注射<Syringe className="w-4 h-4" /></span></div></div>),
+                desc: "フェンタニル貼付剤を剥離後、血中濃度が下がるまで時間がかかるため、剥離後12〜24時間経過してから、または離脱症状出現時に開始することを検討します。" 
+            },
+            { 
+                title: (<div className="flex items-center flex-wrap gap-y-2 gap-x-2"><div className="flex items-center gap-1"><span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold shadow-sm border border-emerald-200">内服<Pill className="w-4 h-4" /></span><span className="text-gray-400 font-bold">・</span><span className="flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold shadow-sm border border-orange-200">注射<Syringe className="w-4 h-4" /></span></div><div className="flex flex-col items-center px-1"><span className="text-[10px] font-bold text-slate-400 leading-none">切替</span><ArrowRight className="w-5 h-5 text-slate-400 mt-0.5" /></div><span className="flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-bold shadow-sm border border-blue-200">貼付剤<Patch className="w-4 h-4" /></span></div>),
+                desc: "フェンタニル貼付剤を貼付開始しても血中濃度上昇に時間がかかるため、貼付と同時に内服等を中止せず、最後の内服から6〜12時間程度あけて（または貼付開始と同時に最終投与を行い）切り替える方法が一般的です。" 
+            },
+            { 
+                title: (<div className="flex items-center flex-wrap gap-y-2 gap-x-2"><span className="flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold shadow-sm border border-orange-200">持続静注/皮下注<Syringe className="w-4 h-4" /></span><div className="flex flex-col items-center px-1"><span className="text-[10px] font-bold text-slate-400 leading-none">切替</span><ArrowRight className="w-5 h-5 text-slate-400 mt-0.5" /></div><span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold shadow-sm border border-emerald-200">内服<Pill className="w-4 h-4" /></span></div>),
+                desc: "点滴終了の1時間前〜直前に初回内服を行うか、内服開始と同時に点滴を中止します（薬物動態により異なります）。" 
+            },
+            { 
+                title: (<div className="flex items-center flex-wrap gap-y-2 gap-x-2"><span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold shadow-sm border border-emerald-200">内服<Pill className="w-4 h-4" /></span><div className="flex flex-col items-center px-1"><span className="text-[10px] font-bold text-slate-400 leading-none">切替</span><ArrowRight className="w-5 h-5 text-slate-400 mt-0.5" /></div><span className="flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold shadow-sm border border-orange-200">持続静注/皮下注<Syringe className="w-4 h-4" /></span></div>),
+                desc: "最終内服から血中濃度が低下するタイミング（次回内服予定時刻など）に合わせて持続注入を開始します。" 
+            },
+            { 
+                title: (<div className="flex items-center flex-wrap gap-y-2 gap-x-2"><span className="flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold shadow-sm border border-orange-200">持続静注/皮下注<Syringe className="w-4 h-4" /></span><div className="flex flex-col items-center px-1"><span className="text-[10px] font-bold text-slate-400 leading-none">切替</span><ArrowRight className="w-5 h-5 text-slate-400 mt-0.5" /></div><span className="flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold shadow-sm border border-orange-200">持続静注/皮下注<Syringe className="w-4 h-4" /></span></div>),
+                desc: "成分を変更する場合、変更前の薬剤を中止すると同時に変更後の薬剤を開始します（シリンジ交換時などに切り替え）。" 
+            },
+            { 
+                title: (<div className="flex items-center flex-wrap gap-y-2 gap-x-2"><span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold shadow-sm border border-emerald-200">内服<Pill className="w-4 h-4" /></span><div className="flex flex-col items-center px-1"><span className="text-[10px] font-bold text-slate-400 leading-none">切替</span><ArrowRight className="w-5 h-5 text-slate-400 mt-0.5" /></div><span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold shadow-sm border border-emerald-200">内服<Pill className="w-4 h-4" /></span></div>),
+                desc: "原則として、次回内服予定時刻から新しい薬剤に切り替えて開始します。" 
+            }
+        ];
+
+        // --- シミュレーション画面コンポーネント (DrugConverter) ---
+        function DrugConverter() {
+            const [isLocked, setIsLocked] = useState(true);
+            const [amount, setAmount] = useState('');
+            const [fromDrugId, setFromDrugId] = useState('');
+            const [toDrugId, setToDrugId] = useState('');
+            const [result, setResult] = useState(0);
+            const [timingMessage, setTimingMessage] = useState('');
+            const [showTable, setShowTable] = useState(false);
+            const [showTimingTable, setShowTimingTable] = useState(false);
+            const [hoveredColIndex, setHoveredColIndex] = useState(null);
+
+            const getEquivalent = (drug, isSource) => {
+                if (drug.id === 'hydromorphone_iv') {
+                    return isSource ? drug.equivalent_source : drug.equivalent;
+                }
+                return drug.equivalent;
+            };
+
+            useEffect(() => {
+                const fromDrug = DRUGS.find(d => d.id === fromDrugId);
+                const toDrug = DRUGS.find(d => d.id === toDrugId);
+                
+                if (fromDrug && toDrug && amount && !isNaN(amount)) {
+                    const fromEq = getEquivalent(fromDrug, true); 
+                    const toEq = getEquivalent(toDrug, false);    
+                    
+                    const converted = parseFloat(amount) * (toEq / fromEq);
+                    setResult(converted);
+
+                    let message = '';
+                    if (fromDrug.type === 'patch' && toDrug.type !== 'patch') {
+                        message = '【貼付剤 → 内服・注射】\nフェンタニル貼付剤を剥離後、血中濃度が下がるまで時間がかかるため、剥離後12〜24時間経過してから、または離脱症状出現時に開始することを検討します。';
+                    } else if (fromDrug.type !== 'patch' && toDrug.type === 'patch') {
+                        message = '【内服・注射 → 貼付剤】\nフェンタニル貼付剤を貼付開始しても血中濃度上昇に時間がかかるため、貼付と同時に内服等を中止せず、最後の内服から6〜12時間程度あけて（または貼付開始と同時に最終投与を行い）切り替える方法が一般的です。';
+                    } else if (fromDrug.type === 'iv' && toDrug.type === 'po') {
+                        message = '【持続静注/皮下注 → 内服】\n点滴終了の1時間前〜直前に初回内服を行うか、内服開始と同時に点滴を中止します（薬物動態により異なります）。';
+                    } else if (fromDrug.type === 'po' && toDrug.type === 'iv') {
+                        message = '【内服 → 持続静注/皮下注】\n最終内服から血中濃度が低下するタイミング（次回内服予定時刻など）に合わせて持続注入を開始します。';
+                    } else if (fromDrug.type === 'iv' && toDrug.type === 'iv') {
+                        message = '【持続静注/皮下注 → 持続静注/皮下注】\n成分を変更する場合、変更前の薬剤を中止すると同時に変更後の薬剤を開始します（シリンジ交換時などに切り替え）。';
+                    } else if (fromDrug.type === 'po' && toDrug.type === 'po') {
+                        message = '【内服 → 内服】\n原則として、次回内服予定時刻から新しい薬剤に切り替えて開始します。';
+                    } else {
+                        message = '医師の指示に従い、適切なタイミングで切り替えてください。';
+                    }
+                    setTimingMessage(message);
+                } else {
+                    setResult(0);
+                    setTimingMessage('');
+                }
+            }, [amount, fromDrugId, toDrugId]);
+
+            const referenceDoses = [30, 60, 120, 240];
+            const tableData = {
+                po: DRUGS.filter(d => d.type === 'po' || d.type === 'patch'),
+                iv: DRUGS.filter(d => d.type === 'iv'),
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 flex flex-col items-center font-sans text-gray-800 pb-12">
+                    <header className="w-full bg-slate-800 text-white py-4 px-6 shadow-md flex justify-center sticky top-0 z-20">
+                        <div className="max-w-4xl w-full">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Activity className="w-6 h-6 text-blue-300" />
+                                    <h1 className="text-xl font-bold tracking-wide">オピオイド換算</h1>
+                                </div>
+                            </div>
+                            <div className="flex items-center text-xs text-slate-400 mt-1">
+                                <span>監修：薬剤師さっぺい🐨</span>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="w-full max-w-4xl px-4 py-8 space-y-6">
+                        <div className={`bg-white rounded-lg border-l-4 border-red-500 shadow-sm transition-all duration-300 overflow-hidden ${!isLocked ? 'border-l-green-500' : ''}`}>
+                            <div className="p-6">
+                                <div className="flex items-start gap-4">
+                                    {isLocked ? (
+                                        <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0 mt-1" />
+                                    ) : (
+                                        <Unlock className="w-6 h-6 text-green-500 flex-shrink-0 mt-1" />
+                                    )}
+                                    <div className="flex-1">
+                                        <h2 className={`font-bold text-lg mb-2 ${isLocked ? 'text-red-600' : 'text-green-700'}`}>
+                                            {isLocked ? '【重要】使用前の確認事項' : 'ロック解除済み'}
+                                        </h2>
+                                        <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                                            本ツールはオピオイド換算の目安を提示するものであり、医学的な助言や処方指示ではありません。
+                                            実際の投与量は、患者の状態（疼痛強度、腎機能、年齢、交差耐性など）を考慮し、医師の責任において決定してください。
+                                        </p>
+                                        
+                                        {isLocked && (
+                                            <button 
+                                                onClick={() => setIsLocked(false)}
+                                                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-6 py-3 rounded-md font-bold transition-all shadow hover:shadow-md"
+                                            >
+                                                <Lock className="w-4 h-4" />
+                                                <span>上記に同意して利用を開始する</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={`transition-all duration-500 relative ${isLocked ? 'opacity-50 pointer-events-none blur-[1px]' : 'opacity-100'}`}>
+                            {isLocked && <div className="absolute inset-0 z-10 bg-gray-50/20" />}
+
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                
+                                {/* 計算入力エリア */}
+                                <div className="p-6 md:p-10 space-y-10">
+                                    
+                                    <div className="flex flex-col md:flex-row items-stretch gap-8">
+                                        
+                                        {/* 変更元 (From) */}
+                                        <div className="flex-1 space-y-4 group">
+                                            <label className="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">変更元薬剤</label>
+                                            <div className="relative">
+                                                <select 
+                                                    value={fromDrugId}
+                                                    onChange={(e) => setFromDrugId(e.target.value)}
+                                                    className={`w-full p-4 pr-10 rounded-lg border-2 border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all appearance-none font-medium cursor-pointer ${!fromDrugId && 'text-gray-400'}`}
+                                                >
+                                                    <option value="">薬剤を選択してください</option>
+                                                    {DRUGS.map(drug => (
+                                                        <option key={drug.id} value={drug.id} className="text-gray-800">{drug.name}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                                            </div>
+
+                                            <div className="relative group-focus-within:text-blue-600 transition-colors">
+                                                <input
+                                                    type="number"
+                                                    value={amount}
+                                                    onChange={(e) => setAmount(e.target.value)}
+                                                    className="w-full p-4 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none text-3xl font-bold text-gray-800 text-right pr-16 transition-all placeholder-gray-300"
+                                                    placeholder="0"
+                                                />
+                                                <span className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-medium">mg</span>
+                                            </div>
+                                        </div>
+
+                                        {/* 矢印 */}
+                                        <div className="flex md:flex-col items-center justify-center pt-6 md:pt-0">
+                                            <div className="p-3 bg-slate-50 border border-slate-100 rounded-full text-slate-400">
+                                                <ArrowRight className="w-6 h-6 rotate-90 md:rotate-0" />
+                                            </div>
+                                        </div>
+
+                                        {/* 変更先 (To) */}
+                                        <div className="flex-1 space-y-4">
+                                            <label className="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">変更先薬剤</label>
+                                            <div className="relative">
+                                                <select 
+                                                    value={toDrugId}
+                                                    onChange={(e) => setToDrugId(e.target.value)}
+                                                    className={`w-full p-4 pr-10 rounded-lg border-2 border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all appearance-none font-medium cursor-pointer ${!toDrugId && 'text-gray-400'}`}
+                                                >
+                                                    <option value="">薬剤を選択してください</option>
+                                                    {DRUGS.map(drug => (
+                                                        <option key={drug.id} value={drug.id} className="text-gray-800">{drug.name}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                                            </div>
+
+                                            <div className="relative">
+                                                <div className="w-full p-4 pr-16 rounded-lg bg-blue-50 border-2 border-blue-100 min-h-[76px] flex items-center justify-end transition-colors">
+                                                    <span className={`text-4xl font-extrabold tracking-tight ${fromDrugId && toDrugId && amount ? 'text-blue-700' : 'text-gray-300'}`}>
+                                                        {(fromDrugId && toDrugId && amount) ? parseFloat(result.toFixed(2)) : '---'}
+                                                    </span>
+                                                </div>
+                                                <span className="absolute right-6 top-1/2 -translate-y-1/2 text-blue-400 font-medium">mg</span>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    {/* 投与タイミング表示エリア */}
+                                    <div className={`mt-8 border rounded-lg p-5 flex gap-4 transition-colors duration-300 ${timingMessage ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200 border-dashed'}`}>
+                                        <div className={`p-2 rounded-full h-fit transition-colors duration-300 ${timingMessage ? 'bg-amber-100' : 'bg-gray-200'}`}>
+                                            <Clock className={`w-5 h-5 transition-colors duration-300 ${timingMessage ? 'text-amber-700' : 'text-gray-400'}`} />
+                                        </div>
+                                        <div>
+                                            <h3 className={`font-bold mb-2 transition-colors duration-300 ${timingMessage ? 'text-amber-900' : 'text-gray-500'}`}>
+                                                切り替えタイミングの目安
+                                            </h3>
+                                            <p className={`text-sm leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${timingMessage ? 'text-amber-800' : 'text-gray-400'}`}>
+                                                {timingMessage || '薬剤と投与量を選択すると、ここに切り替え方法やタイミングの目安が表示されます。'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* 換算表ボタン & 表示エリア */}
+                            <div className="mt-8 flex flex-col items-center gap-6">
+                                <div className="flex flex-wrap justify-center gap-4">
+                                    <button
+                                        onClick={() => setShowTable(!showTable)}
+                                        className={`flex items-center gap-2 font-bold px-6 py-3 rounded-full shadow-sm border transition-all ${showTable ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 hover:text-slate-700 border-slate-200 hover:shadow'}`}
+                                    >
+                                        {showTable ? <X className="w-4 h-4" /> : <TableIcon className="w-4 h-4" />}
+                                        <span>{showTable ? '換算表（本ツールの計算基準値）を閉じる' : '換算表（本ツールの計算基準値）を確認する'}</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setShowTimingTable(!showTimingTable)}
+                                        className={`flex items-center gap-2 font-bold px-6 py-3 rounded-full shadow-sm border transition-all ${showTimingTable ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-500 hover:text-slate-700 border-slate-200 hover:shadow'}`}
+                                    >
+                                        {showTimingTable ? <X className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                                        <span>{showTimingTable ? '切り替えタイミングの目安を閉じる' : '切り替えタイミングの目安を確認する'}</span>
+                                    </button>
+                                </div>
+
+                                {/* 換算表エリア */}
+                                {showTable && (
+                                    <div className="w-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="p-4 bg-slate-100 border-b border-gray-200 flex justify-between items-center">
+                                            <h3 className="font-bold text-slate-700">オピオイド換算表（本ツールの計算基準値）</h3>
+                                        </div>
+                                        
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm text-left">
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {/* 経口・貼付グループ */}
+                                                    <tr>
+                                                        <td colSpan={5} className="bg-slate-200 p-2 text-xs font-bold text-slate-700 pl-4">経口・貼付</td>
+                                                    </tr>
+                                                    {tableData.po.map((drug, index) => (
+                                                        <tr key={drug.id} className={`${index % 2 !== 0 ? 'bg-gray-50' : 'bg-white'} transition-colors`}>
+                                                            <td 
+                                                                className="px-2 py-3 font-bold text-slate-700 border-r border-gray-100 w-[1%] whitespace-nowrap"
+                                                            >
+                                                                {drug.tableName} <span className="text-xs text-gray-400 block font-normal">{drug.unit}</span>
+                                                            </td>
+                                                            {referenceDoses.map((refDose, i) => {
+                                                                const val = refDose * (drug.equivalent / 30);
+                                                                const displayVal = parseFloat(val.toFixed(2));
+                                                                const colIndex = i + 1;
+                                                                return (
+                                                                    <td 
+                                                                        key={i} 
+                                                                        className={`p-3 text-center text-slate-600 font-bold ${hoveredColIndex === colIndex ? 'bg-green-50' : ''}`}
+                                                                        onMouseEnter={() => setHoveredColIndex(colIndex)}
+                                                                        onMouseLeave={() => setHoveredColIndex(null)}
+                                                                    >
+                                                                        {displayVal}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+
+                                                    {/* 静脈・皮下グループ */}
+                                                    <tr>
+                                                        <td colSpan={5} className="bg-slate-200 p-2 text-xs font-bold text-slate-700 pl-4 border-t border-gray-200">静脈・皮下 (注射)</td>
+                                                    </tr>
+                                                    {tableData.iv.map((drug, index) => {
+                                                        if (drug.id === 'hydromorphone_iv') {
+                                                            return (
+                                                                <React.Fragment key={drug.id}>
+                                                                    {/* 1行目 */}
+                                                                    <tr className={`${index % 2 !== 0 ? 'bg-gray-50' : 'bg-white'} transition-colors`}>
+                                                                        <td 
+                                                                            className="px-2 py-3 border-r border-gray-100 w-[1%] whitespace-nowrap font-bold text-slate-700"
+                                                                        >
+                                                                            <div className="font-bold text-slate-700 mb-1">{drug.tableName} <span className="text-xs text-gray-400 font-normal inline">{drug.unit}</span></div>
+                                                                            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block font-normal">他のオピオイド ⇒ ヒドロモルフォン</div>
+                                                                        </td>
+                                                                        {referenceDoses.map((refDose, i) => {
+                                                                            const val = refDose * (drug.equivalent / 30);
+                                                                            const displayVal = parseFloat(val.toFixed(2));
+                                                                            const colIndex = i + 1;
+                                                                            return (
+                                                                                <td 
+                                                                                    key={i} 
+                                                                                    className={`p-3 text-center text-slate-600 font-bold ${hoveredColIndex === colIndex ? 'bg-green-50' : ''}`}
+                                                                                    onMouseEnter={() => setHoveredColIndex(colIndex)}
+                                                                                    onMouseLeave={() => setHoveredColIndex(null)}
+                                                                                >
+                                                                                    {displayVal}
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                    </tr>
+                                                                    {/* 2行目 */}
+                                                                    <tr className={`${index % 2 !== 0 ? 'bg-gray-50' : 'bg-white'} transition-colors`}>
+                                                                        <td 
+                                                                            className="px-2 py-3 border-r border-gray-100 w-[1%] whitespace-nowrap font-bold text-slate-700"
+                                                                        >
+                                                                            <div className="font-bold text-slate-700 mb-1">{drug.tableName} <span className="text-xs text-gray-400 font-normal inline">{drug.unit}</span></div>
+                                                                            <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block font-normal">ヒドロモルフォン ⇒ 他のオピオイド</div>
+                                                                        </td>
+                                                                        {referenceDoses.map((refDose, i) => {
+                                                                            const val = refDose * (drug.equivalent_source / 30);
+                                                                            const displayVal = parseFloat(val.toFixed(2));
+                                                                            const colIndex = i + 1;
+                                                                            return (
+                                                                                <td 
+                                                                                    key={i} 
+                                                                                    className={`p-3 text-center text-slate-600 font-bold ${hoveredColIndex === colIndex ? 'bg-green-50' : ''}`}
+                                                                                    onMouseEnter={() => setHoveredColIndex(colIndex)}
+                                                                                    onMouseLeave={() => setHoveredColIndex(null)}
+                                                                                >
+                                                                                    {displayVal}
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                    </tr>
+                                                                </React.Fragment>
+                                                            );
+                                                        } else {
+                                                            return (
+                                                                <tr key={drug.id} className={`${index % 2 !== 0 ? 'bg-gray-50' : 'bg-white'} transition-colors`}>
+                                                                    <td 
+                                                                        className="px-2 py-3 font-bold text-slate-700 border-r border-gray-100 w-[1%] whitespace-nowrap"
+                                                                    >
+                                                                        {drug.tableName} <span className="text-xs text-gray-400 block font-normal">{drug.unit}</span>
+                                                                    </td>
+                                                                    {referenceDoses.map((refDose, i) => {
+                                                                        const val = refDose * (drug.equivalent / 30);
+                                                                        const displayVal = parseFloat(val.toFixed(2));
+                                                                        const colIndex = i + 1;
+                                                                        return (
+                                                                            <td 
+                                                                                key={i} 
+                                                                                className={`p-3 text-center text-slate-600 font-bold ${hoveredColIndex === colIndex ? 'bg-green-50' : ''}`}
+                                                                                onMouseEnter={() => setHoveredColIndex(colIndex)}
+                                                                                onMouseLeave={() => setHoveredColIndex(null)}
+                                                                            >
+                                                                                {displayVal}
+                                                                            </td>
+                                                                        );
+                                                                    })}
+                                                                </tr>
+                                                            );
+                                                        }
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* タイミング目安一覧エリア */}
+                                {showTimingTable && (
+                                    <div className="w-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="p-4 bg-amber-50 border-b border-amber-200 flex justify-between items-center">
+                                            <h3 className="font-bold text-amber-800">切り替えタイミングの目安</h3>
+                                        </div>
+                                        <div className="p-4 space-y-3">
+                                            {TIMING_GUIDELINES.map((item, index) => (
+                                                <div key={index} className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                                                    <h4 className="font-bold text-sm text-slate-700 mb-1 flex items-center gap-2">
+                                                        {item.title}
+                                                    </h4>
+                                                    <p className="text-sm text-gray-600 pl-2 leading-relaxed">{item.desc}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 参考文献の表示 */}
+                        <div className="mt-8 text-center">
+                            <p className="text-xs text-gray-400">参考文献：がん疼痛の薬物療法に関するガイドライン(2020年版)、医療用麻薬適正使用ガイダンス</p>
+                        </div>
+
+                    </main>
+                </div>
+            );
+        }
+
+        // --- メインアプリコンポーネント (単一機能のためシンプルに) ---
+        function App() {
+            return (
+                <div>
+                    <DrugConverter />
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
